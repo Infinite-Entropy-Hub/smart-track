@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Habit Tracker</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📱</text></svg>">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial'],
+                    },
+                    colors: {
+                        dark: { bg: '#0F172A', card: '#1E293B', border: '#334155', text: '#F8FAFC', muted: '#94A3B8' },
+                        light: { bg: '#F8FAFC', card: '#FFFFFF', border: '#E2E8F0', text: '#334155' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* --- CUSTOM SCROLLBAR --- */
+        ::-webkit-scrollbar {
+            width: 3px;  /* Very thin */
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent; /* Invisible track */
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background-color: #d278d5; /* Light cool gray */
+            border-radius: 20px;       /* Rounded edges */
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background-color: #6366f1; /* Indigo when you grab it */
+        }
+
+        /* Dark mode adjustment */
+        .dark ::-webkit-scrollbar-thumb {
+            background-color: #475569;
+        }
+        
+        .dark ::-webkit-scrollbar-thumb:hover {
+            background-color: #818cf8;
+        }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        
+        /* --- NOTION OPTIMIZATION --- */
+        body { 
+            font-family: 'Inter', sans-serif;
+            /* This is the magic fix for Notion Embeds: */
+            zoom: 0.90; 
+        }
+
+        * { transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease; }
+
+        .checkbox-wrapper input:checked + div { background-color: #3B82F6; border-color: #3B82F6; transform: scale(1.05); }
+        .checkbox-wrapper input:checked + div svg { opacity: 1; transform: scale(1); }
+        .checkbox-wrapper div svg { opacity: 0; transform: scale(0.5); transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .loader { border: 3px solid #f3f3f3; border-top: 3px solid #6366f1; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .btn-disabled { opacity: 0.3; cursor: not-allowed; pointer-events: none; }
+    </style>
+</head>
+<body class="bg-light-bg text-light-text dark:bg-dark-bg dark:text-dark-text min-h-screen flex flex-col items-center py-10 px-4">
+
+    <div id="loading-screen" class="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white dark:bg-dark-bg">
+        <div class="loader mb-4"></div>
+        <p class="text-sm text-gray-400 font-medium">Syncing...</p>
+    </div>
+
+    <div id="auth-screen" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-white dark:bg-dark-bg transition-all">
+        <div class="w-full max-w-sm p-8 space-y-6">
+            <div class="text-center">
+                <div class="w-16 h-16 bg-indigo-600 rounded-2xl mx-auto flex items-center justify-center text-3xl text-white mb-4 shadow-lg shadow-indigo-500/30">
+                    <i class="fa-solid fa-brain"></i>
+                </div>
+                <h1 class="text-2xl font-bold tracking-tight">Smart Habit Tracker</h1>
+                <p class="text-gray-500 dark:text-dark-muted text-sm mt-2">Sign in to organize your life.</p>
+            </div>
+            <div class="space-y-3">
+                <input type="email" id="email" placeholder="Email" class="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-dark-card border border-gray-200 dark:border-dark-border focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <input type="password" id="password" placeholder="Password" class="w-full px-4 py-3 rounded-xl bg-gray-50 dark:bg-dark-card border border-gray-200 dark:border-dark-border focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="handleAuth('login')" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl shadow-lg shadow-indigo-600/20 active:scale-95 transition-transform">Log In</button>
+                <button onclick="handleAuth('signup')" class="w-full bg-transparent border border-gray-300 dark:border-dark-border hover:bg-gray-50 dark:hover:bg-dark-card font-semibold py-3 rounded-xl transition-colors">Sign Up</button>
+            </div>
+            <p id="auth-error" class="text-red-500 text-xs text-center hidden"></p>
+        </div>
+    </div>
+
+    <div id="app-screen" class="hidden w-full max-w-3xl flex-col gap-6 opacity-0 animate-[fadeIn_0.5s_ease-out_forwards]">
+        
+        <header class="flex justify-between items-end pb-4 border-b border-gray-200 dark:border-dark-border">
+            <div>
+                <h1 class="text-3xl font-bold tracking-tight mb-1 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-indigo-400 dark:to-cyan-400">Smart Tracker</h1>
+                <p class="text-sm text-gray-500 dark:text-dark-muted" id="current-date-display">Fetching date...</p>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="toggleTheme()" class="w-10 h-10 rounded-full flex items-center justify-center bg-gray-100 dark:bg-dark-card hover:bg-gray-200 dark:hover:bg-dark-border transition text-gray-600 dark:text-gray-300">
+                    <i class="fa-solid fa-moon dark:hidden"></i>
+                    <i class="fa-solid fa-sun hidden dark:inline"></i>
+                </button>
+                <button onclick="logout()" class="w-10 h-10 rounded-full flex items-center justify-center bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 text-red-500 transition">
+                    <i class="fa-solid fa-power-off"></i>
+                </button>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="bg-gradient-to-br from-indigo-600 to-violet-600 text-white p-6 rounded-2xl shadow-lg shadow-indigo-500/20 flex flex-col justify-between relative overflow-hidden h-64">
+                <div class="relative z-10">
+                    <h3 class="font-bold text-indigo-100 text-xs tracking-widest uppercase mb-1">Current Streak</h3>
+                    <div class="flex items-baseline gap-1">
+                        <span id="global-streak" class="text-6xl font-black tracking-tighter drop-shadow-md">0</span>
+                        <span class="text-xl opacity-80">days</span>
+                    </div>
+                    <p class="text-indigo-100/80 text-sm mt-3 font-medium">Consistency builds momentum.</p>
+                </div>
+                <i class="fa-solid fa-bolt absolute -bottom-6 -right-6 text-9xl text-white opacity-10 rotate-12"></i>
+            </div>
+
+            <div class="md:col-span-2 bg-white dark:bg-dark-card p-6 rounded-2xl border border-gray-200 dark:border-dark-border shadow-sm h-64 flex flex-col relative overflow-hidden">
+                <div class="flex justify-between items-center mb-2 relative z-10">
+                    
+                    <select id="chart-range" onchange="fetchHistoricalData()" class="bg-transparent text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-dark-muted border-none outline-none cursor-pointer hover:text-indigo-500 transition">
+                        <option value="7">Last 7 Days</option>
+                        <option value="month">This Month</option>
+                        <option value="2months">Last + This Month</option>
+                    </select>
+
+                    <div class="flex bg-gray-100 dark:bg-black/20 rounded-lg p-0.5">
+                        <button onclick="switchChartType('bar')" id="btn-bar" class="px-2 py-0.5 text-xs rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-all"><i class="fa-solid fa-chart-bar"></i></button>
+                        <button onclick="switchChartType('line')" id="btn-line" class="px-2 py-0.5 text-xs rounded-md bg-white dark:bg-dark-border shadow-sm text-gray-800 dark:text-white transition-all"><i class="fa-solid fa-chart-line"></i></button>
+                    </div>
+                </div>
+                <div class="flex-1 w-full relative z-10 min-h-0">
+                    <canvas id="habitChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex items-center justify-between bg-white dark:bg-dark-card p-2 rounded-xl border border-gray-200 dark:border-dark-border shadow-sm">
+            <button onclick="changeDate(-1)" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-dark-border transition"><i class="fa-solid fa-chevron-left text-xs"></i></button>
+            <div class="flex gap-2 text-sm font-medium" id="date-scroll">
+                <span class="px-3 py-1 bg-gray-100 dark:bg-dark-border/50 rounded-md text-xs font-bold uppercase tracking-wide" id="date-pill">Today</span>
+            </div>
+            <button id="next-date-btn" onclick="changeDate(1)" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-dark-border transition"><i class="fa-solid fa-chevron-right text-xs"></i></button>
+        </div>
+
+        <div class="space-y-3" id="habits-list">
+            <div class="animate-pulse space-y-3">
+                <div class="h-16 bg-gray-200 dark:bg-dark-card rounded-xl"></div>
+                <div class="h-16 bg-gray-200 dark:bg-dark-card rounded-xl"></div>
+            </div>
+        </div>
+
+        <button onclick="document.getElementById('add-modal').classList.remove('hidden')" class="group w-full py-4 rounded-xl border-2 border-dashed border-gray-300 dark:border-dark-border hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/10 transition-all flex items-center justify-center gap-2 text-gray-400 hover:text-indigo-500">
+            <i class="fa-solid fa-plus text-xs"></i>
+            <span class="font-medium text-sm">Add New Habit</span>
+        </button>
+    </div>
+
+    <div id="add-modal" class="hidden fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div class="bg-white dark:bg-dark-card w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-[slideUp_0.3s_ease-out]">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-bold">New Habit</h2>
+                    <button onclick="document.getElementById('add-modal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><i class="fa-solid fa-xmark text-xl"></i></button>
+                </div>
+                <div class="flex gap-3 mb-6">
+                    <div class="w-16">
+                        <label class="text-xs font-bold text-gray-400 uppercase mb-1 block">Icon</label>
+                        <input type="text" id="new-habit-emoji" class="w-full text-center text-2xl py-3 rounded-xl bg-gray-50 dark:bg-dark-bg border border-transparent focus:bg-white dark:focus:bg-dark-card focus:border-indigo-500 focus:outline-none transition" value="🎯">
+                    </div>
+                    <div class="flex-1">
+                        <label class="text-xs font-bold text-gray-400 uppercase mb-1 block">Habit Name</label>
+                        <input type="text" id="new-habit-name" placeholder="e.g. Read 10 pages" class="w-full text-base py-3 px-4 rounded-xl bg-gray-50 dark:bg-dark-bg border border-transparent focus:bg-white dark:focus:bg-dark-card focus:border-indigo-500 focus:outline-none transition">
+                    </div>
+                </div>
+                <div class="mb-6">
+                    <label class="text-xs font-bold text-gray-400 uppercase mb-2 block">Quick Suggestions</label>
+                    <div class="flex flex-wrap gap-2" id="suggestions-container"></div>
+                </div>
+                <button onclick="addNewHabit()" class="w-full bg-indigo-600 text-white font-bold py-3.5 rounded-xl hover:bg-indigo-700 active:scale-95 transition-all shadow-lg shadow-indigo-500/20">Create Habit</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="edit-modal" class="hidden fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div class="bg-white dark:bg-dark-card w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-[slideUp_0.3s_ease-out]">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-bold">Edit Habit</h2>
+                    <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><i class="fa-solid fa-xmark text-xl"></i></button>
+                </div>
+                <div class="flex gap-3 mb-6">
+                    <div class="w-16">
+                        <label class="text-xs font-bold text-gray-400 uppercase mb-1 block">Icon</label>
+                        <input type="text" id="edit-habit-emoji" class="w-full text-center text-2xl py-3 rounded-xl bg-gray-50 dark:bg-dark-bg border border-transparent focus:bg-white dark:focus:bg-dark-card focus:border-indigo-500 focus:outline-none transition">
+                    </div>
+                    <div class="flex-1">
+                        <label class="text-xs font-bold text-gray-400 uppercase mb-1 block">Habit Name</label>
+                        <input type="text" id="edit-habit-name" class="w-full text-base py-3 px-4 rounded-xl bg-gray-50 dark:bg-dark-bg border border-transparent focus:bg-white dark:focus:bg-dark-card focus:border-indigo-500 focus:outline-none transition">
+                    </div>
+                </div>
+                <button onclick="saveEditHabit()" class="w-full bg-indigo-600 text-white font-bold py-3.5 rounded-xl hover:bg-indigo-700 active:scale-95 transition-all">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="delete-modal" class="hidden fixed inset-0 z-[70] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+        <div class="bg-white dark:bg-dark-card w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-[fadeIn_0.2s_ease-out]">
+            <div class="p-6 text-center">
+                <div class="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 text-2xl">
+                    <i class="fa-solid fa-trash-can"></i>
+                </div>
+                <h2 class="text-lg font-bold mb-2">Delete Habit?</h2>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">This will also delete ALL history for this habit.</p>
+                <div class="grid grid-cols-2 gap-3">
+                    <button onclick="closeDeleteModal()" class="w-full bg-gray-100 dark:bg-dark-border text-gray-700 dark:text-gray-300 font-semibold py-3 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition">Cancel</button>
+                    <button onclick="confirmDeleteHabit()" class="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-3 rounded-xl shadow-lg shadow-red-500/20 transition">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, query, where, onSnapshot, doc, deleteDoc, getDocs, orderBy, updateDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDgFVslEAKCLulhhQCTFjYebKE2x715-oA",
+            authDomain: "habit-tracker-4d10e.firebaseapp.com",
+            projectId: "habit-tracker-4d10e",
+            storageBucket: "habit-tracker-4d10e.firebasestorage.app",
+            messagingSenderId: "362169942067",
+            appId: "1:362169942067:web:686faabaed463871a2e346",
+            measurementId: "G-L2DGCJ80CM"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        
+        let currentUser = null;
+        let currentDate = new Date();
+        let habits = [];
+        let logs = [];
+        let chartInstance = null;
+        let currentChartType = 'line';
+        
+        let habitToDeleteId = null;
+        let habitToEditId = null;
+
+        const SUGGESTIONS = [
+            {icon: "💧", name: "Drink Water"}, {icon: "🏋️", name: "Gym"},
+            {icon: "🧘", name: "Meditate"}, {icon: "👨‍💻", name: "Code"},
+            {icon: "📚", name: "Read"}, {icon: "💊", name: "Vitamins"}
+        ];
+
+        window.handleAuth = (type) => {
+            const email = document.getElementById('email').value;
+            const pass = document.getElementById('password').value;
+            const errorEl = document.getElementById('auth-error');
+            if(!email || !pass) return errorEl.classList.remove('hidden') || (errorEl.innerText = "Fill all fields");
+            const promise = type === 'login' ? signInWithEmailAndPassword(auth, email, pass) : createUserWithEmailAndPassword(auth, email, pass);
+            promise.catch(err => { errorEl.classList.remove('hidden'); errorEl.innerText = err.message; });
+        };
+        window.logout = () => signOut(auth);
+
+        onAuthStateChanged(auth, (user) => {
+            document.getElementById('loading-screen').classList.add('hidden');
+            if (user) {
+                currentUser = user;
+                document.getElementById('auth-screen').classList.add('hidden');
+                document.getElementById('app-screen').classList.remove('hidden');
+                document.getElementById('app-screen').classList.add('flex');
+                initApp();
+            } else {
+                currentUser = null;
+                document.getElementById('app-screen').classList.add('hidden');
+                document.getElementById('app-screen').classList.remove('flex');
+                document.getElementById('auth-screen').classList.remove('hidden');
+            }
+        });
+
+        function initApp() {
+            setupSuggestions();
+            updateDateDisplay();
+            listenToHabits();
+            listenToLogs();
+            fetchHistoricalData();
+        }
+
+        function getDateKey(dateObj) {
+            const offset = dateObj.getTimezoneOffset();
+            return new Date(dateObj.getTime() - (offset*60*1000)).toISOString().split('T')[0];
+        }
+
+        window.changeDate = (days) => {
+            const today = new Date();
+            const tomorrowCheck = new Date(currentDate);
+            tomorrowCheck.setDate(tomorrowCheck.getDate() + days);
+
+            // Block future dates (compare YYYY-MM-DD strings to be safe)
+            if (days > 0 && getDateKey(tomorrowCheck) > getDateKey(today)) {
+                return; 
+            }
+
+            currentDate.setDate(currentDate.getDate() + days);
+            updateDateDisplay();
+            listenToLogs();
+        }
+
+        function updateDateDisplay() {
+            const todayKey = getDateKey(new Date());
+            const currentKey = getDateKey(currentDate);
+            document.getElementById('current-date-display').innerText = currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+            document.getElementById('date-pill').innerText = currentKey === todayKey ? "Today" : currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+
+            const nextBtn = document.getElementById('next-date-btn');
+            if(currentKey === todayKey) {
+                nextBtn.classList.add('btn-disabled');
+            } else {
+                nextBtn.classList.remove('btn-disabled');
+            }
+        }
+
+        function setupSuggestions() {
+            document.getElementById('suggestions-container').innerHTML = SUGGESTIONS.map(s => `
+                <button onclick="fillModal('${s.icon}', '${s.name}')" class="text-xs bg-gray-100 dark:bg-dark-bg border border-transparent hover:border-indigo-500 rounded-full px-3 py-1.5 transition">
+                    ${s.icon} ${s.name}
+                </button>
+            `).join('');
+        }
+
+        window.fillModal = (icon, name) => {
+            document.getElementById('new-habit-emoji').value = icon;
+            document.getElementById('new-habit-name').value = name;
+        }
+
+        let habitsUnsub, logsUnsub;
+        function listenToHabits() {
+            if(habitsUnsub) habitsUnsub();
+            const q = query(collection(db, `users/${currentUser.uid}/habits`), orderBy("order", "asc"));
+            habitsUnsub = onSnapshot(q, (snapshot) => {
+                habits = snapshot.docs.map(d => ({id: d.id, ...d.data()}));
+                renderHabitList();
+                fetchHistoricalData(); 
+            });
+        }
+
+        function listenToLogs() {
+            if(logsUnsub) logsUnsub();
+            const q = query(collection(db, `users/${currentUser.uid}/logs`), where("date", "==", getDateKey(currentDate)));
+            logsUnsub = onSnapshot(q, (snapshot) => {
+                logs = snapshot.docs.map(d => ({id: d.id, ...d.data()}));
+                renderHabitList();
+                fetchHistoricalData(); 
+            });
+        }
+
+        function renderHabitList() {
+            const container = document.getElementById('habits-list');
+            if(habits.length === 0) {
+                container.innerHTML = `<div class="text-center py-10 opacity-50"><i class="fa-solid fa-wind text-4xl mb-2"></i><p>No habits yet</p></div>`;
+                return;
+            }
+            container.innerHTML = habits.map((habit, index) => {
+                const isCompleted = logs.some(l => l.habitId === habit.id);
+                const logId = logs.find(l => l.habitId === habit.id)?.id;
+                const showUp = index > 0;
+                const showDown = index < habits.length - 1;
+
+                return `
+                <div class="group flex items-center justify-between p-2 bg-white dark:bg-dark-card rounded-xl border border-gray-100 dark:border-dark-border hover:border-indigo-300 dark:hover:border-indigo-900 shadow-sm transition-all transform hover:-translate-y-0.1">
+                    
+                    <div class="flex flex-col gap-1 mr-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                        ${showUp ? `<button onclick="moveHabit('${habit.id}', -1)" class="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 dark:hover:bg-dark-border text-gray-400 hover:text-indigo-500"><i class="fa-solid fa-chevron-up text-[10px]"></i></button>` : '<div class="w-6 h-6"></div>'}
+                        ${showDown ? `<button onclick="moveHabit('${habit.id}', 1)" class="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 dark:hover:bg-dark-border text-gray-400 hover:text-indigo-500"><i class="fa-solid fa-chevron-down text-[10px]"></i></button>` : '<div class="w-6 h-6"></div>'}
+                    </div>
+
+                    <div class="flex items-center gap-4 flex-1 cursor-pointer" onclick="document.getElementById('chk-${habit.id}').click()">
+                        <div class="w-12 h-12 rounded-xl bg-gray-50 dark:bg-black/20 flex items-center justify-center text-2xl shadow-inner">${habit.emoji}</div>
+                        <div><h4 class="font-semibold text-base ${isCompleted ? 'line-through text-gray-400 dark:text-gray-500' : ''}">${habit.title}</h4></div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="openEditModal('${habit.id}', '${habit.emoji}', '${habit.title.replace(/'/g, "\\'")}', event)" class="opacity-0 group-hover:opacity-100 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-dark-border text-gray-400 hover:text-indigo-500 transition-all"><i class="fa-solid fa-pen text-xs"></i></button>
+                        <button onclick="openDeleteModal('${habit.id}', event)" class="opacity-0 group-hover:opacity-100 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 transition-all"><i class="fa-solid fa-trash-can text-xs"></i></button>
+                        <label class="checkbox-wrapper relative w-8 h-8 cursor-pointer ml-1">
+                            <input type="checkbox" id="chk-${habit.id}" ${isCompleted ? 'checked' : ''} onchange="toggleHabit('${habit.id}', '${logId||''}', this.checked)" class="peer opacity-0 absolute inset-0 z-10 cursor-pointer">
+                            <div class="w-8 h-8 border-2 border-gray-300 dark:border-gray-500 rounded-lg flex items-center justify-center transition-all bg-white dark:bg-dark-bg">
+                                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+                            </div>
+                        </label>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        window.moveHabit = async (id, direction) => {
+            const index = habits.findIndex(h => h.id === id);
+            if (index === -1) return;
+            const otherIndex = index + direction;
+            if (otherIndex < 0 || otherIndex >= habits.length) return;
+            const currentHabit = habits[index];
+            const otherHabit = habits[otherIndex];
+            const currentOrder = currentHabit.order || 0;
+            const otherOrder = otherHabit.order || 0;
+            await updateDoc(doc(db, `users/${currentUser.uid}/habits`, currentHabit.id), { order: otherOrder });
+            await updateDoc(doc(db, `users/${currentUser.uid}/habits`, otherHabit.id), { order: currentOrder });
+        };
+
+        window.addNewHabit = async () => {
+            const title = document.getElementById('new-habit-name').value;
+            const emoji = document.getElementById('new-habit-emoji').value || "⚡";
+            if(!title) return;
+            const order = habits.length > 0 ? (habits[habits.length - 1].order || 0) + 1 : 0;
+            document.getElementById('new-habit-name').value = "";
+            document.getElementById('add-modal').classList.add('hidden');
+            await addDoc(collection(db, `users/${currentUser.uid}/habits`), { title, emoji, createdAt: Date.now(), order: order });
+        };
+
+        window.toggleHabit = async (habitId, logId, isChecked) => {
+            if (isChecked) { await addDoc(collection(db, `users/${currentUser.uid}/logs`), { habitId, date: getDateKey(currentDate), timestamp: Date.now() }); }
+            else { if(logId) await deleteDoc(doc(db, `users/${currentUser.uid}/logs`, logId)); else { const q = query(collection(db, `users/${currentUser.uid}/logs`), where("habitId", "==", habitId), where("date", "==", getDateKey(currentDate))); const snap = await getDocs(q); snap.forEach(d => deleteDoc(d.ref)); } }
+        };
+
+        window.openEditModal = (id, emoji, title, e) => {
+            e.stopPropagation();
+            habitToEditId = id;
+            document.getElementById('edit-habit-emoji').value = emoji;
+            document.getElementById('edit-habit-name').value = title;
+            document.getElementById('edit-modal').classList.remove('hidden');
+        };
+
+        window.closeEditModal = () => { habitToEditId = null; document.getElementById('edit-modal').classList.add('hidden'); };
+
+        window.saveEditHabit = async () => {
+            const title = document.getElementById('edit-habit-name').value;
+            const emoji = document.getElementById('edit-habit-emoji').value;
+            if(habitToEditId && title) {
+                await updateDoc(doc(db, `users/${currentUser.uid}/habits`, habitToEditId), { title, emoji });
+                closeEditModal();
+            }
+        };
+
+        window.openDeleteModal = (id, e) => { e.stopPropagation(); habitToDeleteId = id; document.getElementById('delete-modal').classList.remove('hidden'); };
+        window.closeDeleteModal = () => { habitToDeleteId = null; document.getElementById('delete-modal').classList.add('hidden'); };
+
+        window.confirmDeleteHabit = async () => {
+            if(habitToDeleteId) {
+                const logsQuery = query(collection(db, `users/${currentUser.uid}/logs`), where("habitId", "==", habitToDeleteId));
+                const logsSnapshot = await getDocs(logsQuery);
+                const batch = writeBatch(db);
+                logsSnapshot.forEach(doc => { batch.delete(doc.ref); });
+                await batch.commit();
+                await deleteDoc(doc(db, `users/${currentUser.uid}/habits`, habitToDeleteId));
+                closeDeleteModal();
+            }
+        };
+
+        window.switchChartType = (type) => {
+            currentChartType = type;
+            const activeClass = "bg-white dark:bg-dark-border shadow-sm text-gray-800 dark:text-white";
+            const inactiveClass = "text-gray-400 hover:text-gray-600 dark:hover:text-gray-200";
+            document.getElementById('btn-bar').className = `px-2 py-0.5 text-xs rounded-md transition-all ${type === 'bar' ? activeClass : inactiveClass}`;
+            document.getElementById('btn-line').className = `px-2 py-0.5 text-xs rounded-md transition-all ${type === 'line' ? activeClass : inactiveClass}`;
+            fetchHistoricalData();
+        };
+
+        window.fetchHistoricalData = async () => {
+            if (!currentUser) return;
+            
+            const rangeType = document.getElementById('chart-range').value;
+            const dates = [];
+            const labels = [];
+            const today = new Date();
+            let startDate = new Date();
+
+            if(rangeType === "7") {
+                startDate.setDate(today.getDate() - 6);
+            } else if (rangeType === "month") {
+                startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+            } else if (rangeType === "2months") {
+                startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+            }
+
+            let itr = new Date(startDate);
+            while(itr <= today) {
+                dates.push(getDateKey(itr));
+                const label = rangeType === "7" 
+                    ? itr.toLocaleDateString('en-US', {weekday: 'narrow'})
+                    : itr.getDate();
+                labels.push(label);
+                itr.setDate(itr.getDate() + 1);
+            }
+
+            const q = query(collection(db, `users/${currentUser.uid}/logs`), where("date", ">=", dates[0]), where("date", "<=", dates[dates.length-1]));
+            const snap = await getDocs(q);
+            const logsData = snap.docs.map(d => d.data());
+            const counts = dates.map(d => logsData.filter(l => l.date === d).length);
+            
+            let streak = 0;
+            const todayKey = getDateKey(new Date());
+            let checkD = new Date();
+            while(true) {
+                const key = getDateKey(checkD);
+                const hasAct = logsData.some(l => l.date === key);
+                if(key === todayKey && !hasAct) { checkD.setDate(checkD.getDate()-1); continue; }
+                if(hasAct) { streak++; checkD.setDate(checkD.getDate()-1); } else break; 
+            }
+            if(streak === 0 && counts[counts.length-1] > 0) streak = 1;
+            document.getElementById('global-streak').innerText = streak;
+
+            const ctx = document.getElementById('habitChart').getContext('2d');
+            const isDark = document.documentElement.classList.contains('dark');
+            
+            let gradient, borderColor;
+            if(isDark) {
+                gradient = ctx.createLinearGradient(0, 0, 0, 300);
+                gradient.addColorStop(0, 'rgba(168, 85, 247, 0.5)'); 
+                gradient.addColorStop(1, 'rgba(6, 182, 212, 0.0)');  
+                borderColor = '#A855F7';
+            } else {
+                gradient = ctx.createLinearGradient(0, 0, 0, 300);
+                gradient.addColorStop(0, 'rgba(59, 130, 246, 0.4)'); 
+                gradient.addColorStop(1, 'rgba(16, 185, 129, 0.0)'); 
+                borderColor = '#3B82F6';
+            }
+
+            const totalActiveHabits = habits.length > 0 ? habits.length : 5; 
+
+            if(chartInstance) {
+                chartInstance.data.labels = labels;
+                chartInstance.data.datasets[0].data = counts;
+                chartInstance.data.datasets[0].backgroundColor = gradient;
+                chartInstance.data.datasets[0].borderColor = borderColor;
+                chartInstance.config.type = currentChartType;
+                chartInstance.data.datasets[0].fill = currentChartType === 'line';
+                chartInstance.data.datasets[0].pointRadius = (currentChartType === 'line' && dates.length < 20) ? 3 : 0;
+                chartInstance.options.scales.y.max = totalActiveHabits;
+                chartInstance.options.scales.y.ticks.color = isDark ? '#64748B' : '#94A3B8';
+                chartInstance.update();
+            } else {
+                chartInstance = new Chart(ctx, {
+                    type: currentChartType,
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Completions',
+                            data: counts,
+                            backgroundColor: gradient,
+                            borderColor: borderColor,
+                            borderWidth: 2,
+                            borderRadius: 6,
+                            fill: true,
+                            tension: 0.4,
+                            pointBackgroundColor: isDark ? '#FFF' : '#FFF',
+                            pointBorderColor: borderColor,
+                            pointRadius: (currentChartType === 'line') ? 3 : 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        animation: { duration: 800, easing: 'easeOutQuart' },
+                        plugins: { legend: {display: false} },
+                        scales: { 
+                            y: { 
+                                display: true,
+                                beginAtZero: true, 
+                                max: totalActiveHabits,
+                                grid: { display: false, drawBorder: false },
+                                ticks: {
+                                    color: isDark ? '#64748B' : '#94A3B8',
+                                    font: { size: 9, family: 'Inter' },
+                                    stepSize: 1,
+                                    padding: 5
+                                }
+                            }, 
+                            x: { grid: {display: false}, ticks: {color: isDark ? '#64748B' : '#94A3B8', font: {size: 10, family: 'Inter'}} } 
+                        }
+                    }
+                });
+            }
+        };
+
+        window.toggleTheme = () => { document.documentElement.classList.toggle('dark'); fetchHistoricalData(); };
+        
+        const styleSheet = document.createElement("style");
+        styleSheet.innerText = `@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } } @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }`;
+        document.head.appendChild(styleSheet);
+    </script>
+</body>
+</html>
