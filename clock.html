@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notion Clock Widget</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, 'Apple Color Emoji', Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            transition: background-color 0.3s ease;
+        }
+
+        .clock-container {
+            position: relative;
+            padding: 40px 60px;
+            border-radius: 16px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .time {
+            font-size: 72px;
+            font-weight: 600;
+            letter-spacing: -2px;
+            text-align: center;
+            transition: color 0.3s ease;
+        }
+
+        .date {
+            font-size: 18px;
+            text-align: center;
+            margin-top: 12px;
+            opacity: 0.7;
+            font-weight: 400;
+            transition: color 0.3s ease;
+        }
+
+        .theme-btn {
+            position: absolute;
+            bottom: 12px;
+            right: 12px;
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            opacity: 0.6;
+        }
+
+        .theme-btn:hover {
+            opacity: 1;
+            transform: scale(1.1);
+        }
+
+        /* Theme Styles */
+        /* Light */
+        body.light {
+            background: #ffffff;
+        }
+        body.light .clock-container {
+            background: rgba(247, 246, 243, 0.8);
+            border: 1px solid rgba(0, 0, 0, 0.06);
+        }
+        body.light .time {
+            color: #37352f;
+        }
+        body.light .date {
+            color: #37352f;
+        }
+        body.light .theme-btn {
+            background: rgba(0, 0, 0, 0.05);
+            color: #37352f;
+        }
+
+        /* Dark */
+        body.dark {
+            background: #191919;
+        }
+        body.dark .clock-container {
+            background: rgba(47, 47, 47, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        body.dark .time {
+            color: #ffffff;
+        }
+        body.dark .date {
+            color: #ffffff;
+        }
+        body.dark .theme-btn {
+            background: rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+        }
+
+        /* Ocean */
+        body.ocean {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        body.ocean .clock-container {
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        body.ocean .time {
+            color: #ffffff;
+        }
+        body.ocean .date {
+            color: #ffffff;
+        }
+        body.ocean .theme-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: #ffffff;
+        }
+
+        /* Sunset */
+        body.sunset {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        body.sunset .clock-container {
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        body.sunset .time {
+            color: #ffffff;
+        }
+        body.sunset .date {
+            color: #ffffff;
+        }
+        body.sunset .theme-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: #ffffff;
+        }
+
+        /* Forest */
+        body.forest {
+            background: linear-gradient(135deg, #0ba360 0%, #3cba92 100%);
+        }
+        body.forest .clock-container {
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        body.forest .time {
+            color: #ffffff;
+        }
+        body.forest .date {
+            color: #ffffff;
+        }
+        body.forest .theme-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: #ffffff;
+        }
+
+        /* Midnight */
+        body.midnight {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+        }
+        body.midnight .clock-container {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+        body.midnight .time {
+            color: #ffffff;
+        }
+        body.midnight .date {
+            color: #ffffff;
+        }
+        body.midnight .theme-btn {
+            background: rgba(255, 255, 255, 0.15);
+            color: #ffffff;
+        }
+
+        /* Peach */
+        body.peach {
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+        }
+        body.peach .clock-container {
+            background: rgba(255, 255, 255, 0.4);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+        body.peach .time {
+            color: #5a3e2b;
+        }
+        body.peach .date {
+            color: #5a3e2b;
+        }
+        body.peach .theme-btn {
+            background: rgba(0, 0, 0, 0.08);
+            color: #5a3e2b;
+        }
+    </style>
+</head>
+<body class="light">
+    <div class="clock-container">
+        <div class="time" id="time">00:00:00</div>
+        <div class="date" id="date">Monday, January 1, 2024</div>
+        <button class="theme-btn" id="themeBtn" title="Change Theme">🎨</button>
+    </div>
+
+    <script>
+        const themes = ['light', 'dark', 'ocean', 'sunset', 'forest', 'midnight', 'peach'];
+        let currentThemeIndex = 0;
+
+        // Load saved theme from localStorage
+        function loadTheme() {
+            const savedTheme = localStorage.getItem('notionClockTheme');
+            if (savedTheme) {
+                currentThemeIndex = themes.indexOf(savedTheme);
+                if (currentThemeIndex === -1) currentThemeIndex = 0;
+            }
+            applyTheme();
+        }
+
+        // Apply theme to body
+        function applyTheme() {
+            document.body.className = themes[currentThemeIndex];
+            localStorage.setItem('notionClockTheme', themes[currentThemeIndex]);
+        }
+
+        // Change theme on button click
+        document.getElementById('themeBtn').addEventListener('click', () => {
+            currentThemeIndex = (currentThemeIndex + 1) % themes.length;
+            applyTheme();
+        });
+
+        // Update clock
+        function updateClock() {
+            const now = new Date();
+
+            // Time
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            document.getElementById('time').textContent = `${hours}:${minutes}:${seconds}`;
+
+            // Date
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            const dateStr = now.toLocaleDateString('en-US', options);
+            document.getElementById('date').textContent = dateStr;
+        }
+
+        // Initialize
+        loadTheme();
+        updateClock();
+        setInterval(updateClock, 1000);
+    </script>
+</body>
+</html>
